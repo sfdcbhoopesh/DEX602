@@ -4,7 +4,7 @@
 			<lightning-layout horizontal-align="center">
 				<!-- Instructors drop-down -->
 				<lightning-layout-item padding="around-small" size="4">
-					<lightning-combobox
+					<lightning-combobox 
 						name="Instructors"
 						label="Select an Instructor"
                         variant="label-hidden"
@@ -13,17 +13,24 @@
 						options={instructors}
 						onchange={onInstructorChange}
 					></lightning-combobox>
+					
 				</lightning-layout-item>
-				<!-- Deliveries drop-down -->
+				
 				<lightning-layout-item padding="around-small" size="4">
-					<lightning-combobox
-						name="selectDelivery"
-						label="Select Delivery"
-                        variant="label-hidden"
-						value={selectedDeliveryId}
-						placeholder="Select a Delivery"
-						options={deliveries}
-					></lightning-combobox>
+					<lightning-combobox name="deliverySelector"
+				label="Select Delivery"
+				variant="label-hidden"
+				value={selectedDeliveryId}
+				placeholder="Select an delivery"
+				options={deliveries}
+				onchange={onDeliveryChange}>
+			   </lightning-combobox>
+				</lightning-layout-item>
+
+				<lightning-layout-item padding="around-small" size="4">
+					<lightning-button variant="brand" disabled={isButtonDisabled} label="Add new Delivery"
+					                  onclick={onAddNewDelivery}>
+					</lightning-button>
 				</lightning-layout-item>
 			</lightning-layout>
 		</lightning-card>
