@@ -1,80 +1,119 @@
-import { LightningElement, wire } from "lwc";
-// TODO #1: import the getRecord, getFieldValue, and getFieldDisplayValue functions from lightning/uiRecordApi.
-import { getRecord, getFieldValue, getFieldDisplayValue } from "lightning/uiRecordApi";
-// TODO #2: We've imported the name field and placed it into an array for you.
-//          To prepare for Lab 1, import the Description, Email, and Phone fields and add them to the array.
-import FIELD_Name from "@salesforce/schema/Contact.Name";
-import FIELD_Email from "@salesforce/schema/Contact.Email";
-import FIELD_Phone from "@salesforce/schema/Contact.Phone";
-import FIELD_Description from "@salesforce/schema/Contact.Description";
-import{subscribe,unsubscribe,MessageContext} from 'lightning/messageService';
+import { LightningElement, wire } from 'lwc';
+
+import Utils from 'c/utils';
+
+import { getRecord } from 'lightning/uiRecordApi';
+import { subscribe, unsubscribe, MessageContext } from 'lightning/messageService';
 import SELECTED_STUDENT_CHANNEL from '@salesforce/messageChannel/SelectedStudentChannel__c';
-const fields = [FIELD_Name, FIELD_Email, FIELD_Phone, FIELD_Description];
+import { NavigationMixin } from 'lightning/navigation';
 
-export default class StudentDetail extends LightningElement {
+import FIELD_Name from '@salesforce/schema/Contact.Name';
+import FIELD_Description from '@salesforce/schema/Contact.Description';
+import FIELD_Email from '@salesforce/schema/Contact.Email';
+import FIELD_Phone from '@salesforce/schema/Contact.Phone';
+const fields = [FIELD_Name, FIELD_Description, FIELD_Email, FIELD_Phone];
 
-	// TODO #3: locate a valid Contact ID in your scratch org and store it in the studentId property.
-	// Example: studentId = '003S000001SBAXEIA5 003DJ00000jsgkTYAQ';
-    subscription;
+import { refreshApex } from '@salesforce/apex';
+import getCoursesAttended from '@salesforce/apex/StudentDetail.getCoursesAttended';
+
+export default class StudentDetail extends NavigationMixin(LightningElement) {
+
 	studentId;
-    @wire(MessageContext) messageContext;
+	subscription;
+	history;
+	_wiredAttendanceResult;
 
-	//TODO #4: use wire service to call getRecord, passing in our studentId and array of fields.
-	//		   Store the result in a property named wiredStudent.
-	@wire(getRecord, { recordId: "$studentId", fields })
-    wiredStudent;
-    get name() {
-        return this._getDisplayValue(this.wiredStudent.data, FIELD_Name);
-    }
-    get description() {
-        return this._getDisplayValue(this.wiredStudent.data, FIELD_Description);
-    }
-    get phone() {
-        return this._getDisplayValue(this.wiredStudent.data, FIELD_Phone);
-    }
-    get email() {
-        return this._getDisplayValue(this.wiredStudent.data, FIELD_Email);
-    }
+	@wire(MessageContext) messageContext;
 
+	@wire(getRecord, { recordId: '$studentId', fields })
+	wiredStudent;
 
-	//TODO #5: We provided a getter for the name field. 
-	// 		   To prepare for Lab 1, create getters for the description, phone, and email fields.
+	@wire(getCoursesAttended, {contactId: '$studentId'})
+	wired_getCoursesAttended(result) {
+		this._wiredAttendanceResult = result;
+		let data = result.data;
+		let error = result.error;
+		this.history = [];
+		if (data) {
+			this.history = data.map ( (c) => ({
+				courseAttendeeId: c.Id,
+				startDate: c.Course_Delivery__r.Start_Date__c,
+				courseName: c.Course_Delivery__r.Course__r.Name,
+				instructorNotes: (c.InstructorNotes__c) ? c.InstructorNotes__c : 'No Notes',
+				status: c.Status__c,
+				instructorName: (c.Course_Delivery__r.Instructor__c) ? c.Course_Delivery__r.Instructor__r.Name : 'Unassigned',
+				label: c.Course_Delivery__r.Course__r.Name + ' ' +c.Course_Delivery__r.Start_Date__c
+			}));
+		} else if (error) {
+			this.error=error;
+		}
+	}
 	
-	//TODO #6: Review the cardTitle getter, and the _getDisplayValue function below.
-	
-	
+	connectedCallback() {
+		if(this.subscription){
+			return;
+		}
+		this.subscription = subscribe(
+			this.messageContext, 
+			SELECTED_STUDENT_CHANNEL,
+			(message) => {
+				this.handleStudentChange(message)
+			}
+		);
+	}
 
+	disconnectedCallback() {
+		unsubscribe(this.subscription);
+		this.subscription = null;
+	}
+
+	get name() {
+		return Utils.getDisplayValue(this.wiredStudent.data, FIELD_Name);
+	}
+	get description() {
+		return Utils.getDisplayValue(this.wiredStudent.data, FIELD_Description);
+	}
+	get phone() {
+		return Utils.getDisplayValue(this.wiredStudent.data, FIELD_Phone);
+	}
+	get email() {
+		return Utils.getDisplayValue(this.wiredStudent.data, FIELD_Email);
+	}
+	
 	get cardTitle() {
-        let title = "Please select a student";
-        if (this.wiredStudent.data) {
-            title = this.name;
-        } else if (this.wiredStudent.error) {
-            title = "Something went wrong...";
-        }
-        return title;
-    }
-    _getDisplayValue(data, field) {
-        return getFieldDisplayValue(data, field) ? getFieldDisplayValue(data, field) : getFieldValue(data, field);
-    }
-    connectedCallback(){
-        if(this.subscription){
-            return;
-        }
-        this.subscription=subscribe(
-            this.messageContext,
-            SELECTED_STUDENT_CHANNEL,
-            (message)=>{
-                this.handleStudentChange(message)
-            }
-        );
-    }
-    handleStudentChange(message){
-        this.studentId=message.studentId;
+		let title = "Please select a student";
+		if (this.wiredStudent.data) {
+			title = this.name;
+		} else if (this.wiredStudent.error) {
+			title = "Something went wrong..."
+		}
+		return title;
+	}
 
-    }
-    disconnectedCallback(){
-        unsubscribe(this.subscription);
-        this.subscription=null;
-    }
+	get hasHistory() {
+		return this.history && this.history.length > 0;
+	}
+
+	get hasNoHistory() {
+		return !(this.history && this.history.length > 0);
+	}	
+
+	handleStudentChange(message) {
+		this.studentId = message.studentId;
+	}
+
+	onGoToRecord(evt) {
+		this[NavigationMixin.Navigate]({
+			type: 'standard__recordPage',
+			attributes: {
+				recordId: this.studentId,
+				actionName: 'view'
+			},
+		});
+	}
+
+	onNotesUpdated() {
+		refreshApex(this._wiredAttendanceResult);
+	}
 	
 }

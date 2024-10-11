@@ -1,15 +1,34 @@
 <template>
-    <!-- todo #8: use the cardTitle getter to display a dynamic title for the lightning-card -->
-    <lightning-card title={cardTitle} >
-        <template lwc:if={wiredStudent.error}>
-            <div class="slds-var-p-horizontal_medium">
-                <c-error-panel type="inlineMessage" errors={wiredStudent.error}></c-error-panel>
-            </div>
-        </template>
-        <template lwc:if={wiredStudent.data}>
-            <div class="slds-var-p-horizontal_medium">
-                <!-- this will be filled out during the lab -->
-            </div>
-        </template>
-    </lightning-card>
+		<lightning-card lwc:if={studentId} title={cardTitle}>
+			
+			<template lwc:if={wiredStudent.error}>
+				<div class="slds-var-p-horizontal_medium">
+					<c-error-panel type="inlineMessage" errors={wiredStudent.error}></c-error-panel>
+				</div>
+			</template>
+
+			<template lwc:if={wiredStudent.data}>
+				<!-- this will be filled out during the lab -->
+				<lightning-button slot="actions" label="Go to record" onclick={onGoToRecord}>
+				</lightning-button>
+				<div class="slds-var-p-horizontal_medium slds-var-m-bottom_medium">
+					<p><lightning-formatted-email value={email}></lightning-formatted-email></p>
+					<p><lightning-formatted-phone value={phone}></lightning-formatted-phone></p>
+					<p>{description}</p>
+				</div>
+				
+			</template>
+			
+		</lightning-card>
+
+		<div lwc:if={wiredStudent.data} class="slds-var-m-vertical_small history">
+			<lightning-tabset>
+				<lightning-tab label="History">
+					<c-student-history history={history}></c-student-history>
+				</lightning-tab>
+				<lightning-tab lwc:if={hasHistory} label="Edit Notes">
+					<c-student-note-editor history={history} onnotesupdated={onNotesUpdated}></c-student-note-editor>
+				</lightning-tab>
+			</lightning-tabset>
+		</div>
 </template>
